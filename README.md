@@ -17,9 +17,6 @@ Quinit._Start()
 ```
 local Service = {}
 
-function Service.Example(self: Service)
-end
-
 function Service._Start()
 end
 
@@ -37,3 +34,9 @@ end
 
 return Service
 ```
+
+When you send a module through Quinit, the above functions will run automatically when necessary
+- _OnPlayerAdded -> When a player joins the game
+- _OnPlayerRemoving -> When a player leaves the game
+- _OnCharacterAdded -> When a player character is loaded
+- _OnHeartbeat -> Runs on every RunService Heartbeat
