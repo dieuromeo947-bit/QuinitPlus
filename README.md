@@ -2,17 +2,56 @@
 
 Quinit is an easy to use module loader for Roblox Luau. It allows you to cache and require modules on the server and client, as well as link up various helpful default functions to prevent calling multiple of the same connections.
 
-### How To Use
+### What changes fork?
 
-**Setup** _(Server or Client script)_
+**Simpler and better setup** _(Server or Client script)_
 ```
-const Quinit = require(ReplicatedStorage.Packages.Quinit)
-local moduleFolder = path.to.modules
+-- .SetSettings set settings for quinit
+Quinit.SetSettings({
+	deepSearch = 2,
+	--data = ...
+})
 
-Quinit._Init(moduleFolder.Module1, 1) <- Set a run priority
-Quinit._Init(moduleFolder.Module2, 2)
-Quinit._Init(moduleFolder.ChildFolder:GetChildren())
+--[[
+	Now you can pass containers into Quinit
+	deepSearch will go through the modules to the desired parent
+]]
+Quinit._Init({
+	script.Services -- Folder
+})
+
 Quinit._Start()
+```
+
+**Inside module**
+```
+local TestService = {}
+
+-- Priority inside modulescript overrides priority set in Quinit
+TestService.Priority = 1
+
+--[[
+	Now Quinit pass self into _Start arguments
+	
+	Example:
+]]
+function TestService._Start(self: Service)
+	self.Variable = 1
+	
+	print('o')
+	
+	self:PrintVariable()
+end
+
+function TestService.PrintVariable(self: Service)
+	print(self.Variable)
+end
+
+type Service = typeof(TestService) & {
+	Variable: number
+}
+
+return TestService
 ```
 
 **Template Module**
@@ -36,9 +75,3 @@ end
 
 return Service
 ```
-
-When you send a module through Quinit, the following functions will run automatically when necessary:
-- _OnPlayerAdded -> When a player joins the game
-- _OnPlayerRemoving -> When a player leaves the game
-- _OnCharacterAdded -> When a player character is loaded
-- _OnHeartbeat -> Runs on every RunService Heartbeat
