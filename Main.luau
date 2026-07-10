@@ -2,15 +2,18 @@
 const RunService = game:GetService("RunService")
 const Players = game:GetService("Players")
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
-const Data = require(ReplicatedStorage.Data)
 
 local CachedModules = {}
 local ModulePriorities = {}
 
 local connections = {} :: {[Player]: RBXScriptConnection}
 
+local settings: settings = {}
 
-
+type settings = {
+	deepSearch: number,
+	data: ModuleScript
+}
 
 --\\ FUNCTIONS //--
 local function getOrderedModules(): { { name: string, module: any } }
@@ -24,26 +27,71 @@ local function getOrderedModules(): { { name: string, module: any } }
 	return ordered
 end
 
+local function deepSearchModules(t: {}, instance: Instance, deepSearch: number): {ModuleScript}
+	local count = 0
+	local function recursive_search(instance: Instance)
+		count += 1
+		
+		if count > deepSearch then
+			return
+		end
 
+		for _, child in pairs(instance:GetChildren()) do
+			if child:IsA('ModuleScript') then
+				table.insert(t, child)
+			end
 
+			recursive_search(child)
+		end
+	end
+
+	recursive_search(instance)
+end
 
 --\\ QUINIT //--
 local Quinit = {}
-
 
 function Quinit.Get(name: string)
 	return CachedModules[name]
 end
 
+function Quinit.SetSettings(newsettings: settings)
+	if newsettings.data then
+		settings.data = require(newsettings.data)
+	end
+	
+	settings = newsettings or {}
+end
 
-function Quinit._Init(input: ModuleScript | {ModuleScript}, priority: number?)
-	local scripts = typeof(input) == 'table' and input or {input} :: {ModuleScript}
+function Quinit._Init(input: ModuleScript | {ModuleScript} | {Instance}, priority: number?)
+	const instances = typeof(input) == 'table' and input or {input} :: {ModuleScript}
 	priority = priority and priority or 50
 
-	for _, module in scripts do
+	const deepSearch = settings and settings.deepSearch or 0
+
+	local modules = {}
+
+	for _, instance in pairs(instances) do
+		if instance:IsA('ModuleScript') then
+			table.insert(modules, instance)
+		end
+	end 
+
+	if deepSearch > 0 then
+		for _, instance in pairs(instances) do
+			deepSearchModules(modules, instance, deepSearch)
+		end 
+	end
+	
+	print(modules)
+
+	for _, module in modules do
 		if not module:IsA('ModuleScript') then continue end
 		if CachedModules[module.Name] then continue end
 		local mod = require(module)
+		if mod.Priority then
+			priority = mod.Priority
+		end
 		CachedModules[module.Name] = mod
 		ModulePriorities[module.Name] = priority
 	end
@@ -53,10 +101,12 @@ end
 function Quinit._Start()
 	for _, entry in getOrderedModules() do
 		if entry.module._Start then
-			task.spawn(entry.module._Start)
+			task.spawn(function()
+				entry.module:_Start()
+			end)
 		end
 	end
-	
+
 	if RunService:IsServer() then
 		for _, player in ipairs(Players:GetPlayers()) do
 			task.spawn(Quinit._OnPlayerAdded, player)
@@ -65,7 +115,9 @@ function Quinit._Start()
 			end
 		end
 		Players.PlayerAdded:Connect(function(player)
-			Data.Server.Service:waitForData(player)
+			if settings.Data then
+				settings.Data.Server.Service:waitForData(player)
+			end
 			Quinit._OnPlayerAdded(player)
 
 			connections[player] = player.CharacterAdded:Connect(function(character: Model)
@@ -108,8 +160,8 @@ function Quinit._Start()
 			task.spawn(Quinit._OnCharacterAdded, character, player)
 		end
 	end
-	
-	
+
+
 	local heartbeatCount = 0
 	for _, entry in getOrderedModules() do
 		if typeof(entry.module._OnHeartbeat) == 'function' then
