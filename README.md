@@ -53,25 +53,3 @@ type Service = typeof(TestService) & {
 
 return TestService
 ```
-
-**Template Module**
-```
-local Service = {}
-
-function Service._Start()
-end
-
-function Service._OnPlayerAdded(player: Player)
-end
-
-function Service._OnCharacterAdded(character: Model, player: Player)
-end
-
-function Service._OnPlayerRemoving(player: Player)
-end
-
-function Service._OnHeartbeat()
-end
-
-return Service
-```
